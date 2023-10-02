@@ -744,6 +744,10 @@ MonoBehaviour:
     DurabilityPolicy: 2
     HistoryPolicy: 1
     Depth: 5
+  npcVehiclePrefabs:
+  - {fileID: 6604874415271597525, guid: 7e772e9ad7eb79040be629d8d04542ab, type: 3}
+  - {fileID: 3333523281254186578, guid: 589cf2e451adab34eb1332da5701195a, type: 3}
+  - {fileID: 714549001370495616, guid: d0094c5a0e9fb6148873c658dbc61a89, type: 3}
 --- !u!4 &1733467453
 Transform:
   m_ObjectHideFlags: 0

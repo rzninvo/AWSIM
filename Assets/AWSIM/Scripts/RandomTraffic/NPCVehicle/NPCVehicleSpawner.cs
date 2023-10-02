@@ -49,6 +49,12 @@ namespace AWSIM.TrafficSimulation
             }
         }
 
+        public NPCVehicleSpawner(GameObject parentsObj, GameObject[] prefabs)
+        {
+            this.NPCVehicleParentsObj = parentsObj;
+            this.prefabs = prefabs;
+        }
+
         /// <summary>
         /// Get random NPC vehicle prefab.
         /// </summary>
@@ -96,6 +102,27 @@ namespace AWSIM.TrafficSimulation
             obj.name = obj.name + "_" + vehicleID.ToString();
             obj.transform.forward = npcVehicleSpawnPoint.Forward;
             obj.transform.parent = NPCVehicleParentsObj.transform;
+            var vehicle = obj.GetComponent<NPCVehicle>();
+            vehicle.VehicleID = vehicleID;
+            return vehicle;
+        }
+
+        public NPCVehicle Spawn(GameObject prefab, uint vehicleID, Transform parent)
+        {
+            var obj = Object.Instantiate(prefab, parent);
+            obj.name = obj.name + "_" + vehicleID.ToString();
+            obj.transform.forward = parent.forward;
+            obj.transform.parent = parent.transform;
+            var vehicle = obj.GetComponent<NPCVehicle>();
+            vehicle.VehicleID = vehicleID;
+            return vehicle;
+        }
+
+        public NPCVehicle Spawn(GameObject prefab, uint vehicleID, Vector3 spawnPosition, Quaternion rotation, Transform parent)
+        {
+            var obj = Object.Instantiate(prefab, spawnPosition, rotation, parent);
+            obj.name = obj.name + "_" + vehicleID.ToString();
+            obj.transform.parent = parent.transform;
             var vehicle = obj.GetComponent<NPCVehicle>();
             vehicle.VehicleID = vehicleID;
             return vehicle;
