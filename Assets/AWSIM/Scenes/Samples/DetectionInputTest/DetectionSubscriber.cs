@@ -51,7 +51,7 @@ namespace AWSIM.Tests
                             trackedObjectsPublisher.Publish(msg);
                             currentFrameVehicles = new List<String>();
                             foreach (autoware_auto_perception_msgs.msg.TrackedObject obj in msg.Objects){
-                                if (obj.Classification[0].Label == 1 && obj.Existence_probability >= 0.4){
+                                if (obj.Classification[0].Label == 1 /*&& obj.Existence_probability >= 0.3*/){
                                     string uuid = BitConverter.ToString(obj.Object_id.Uuid).Replace("-", "");
                                     currentFrameVehicles.Add(uuid);
                                     if (detectedVehicles.ContainsKey(uuid)){
@@ -86,43 +86,60 @@ namespace AWSIM.Tests
             npcVehicles.Add(vehicleID, vehicle);
             while (true)
             {
-                float vehicleSpeed = (float)detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Linear.X;
-                if (vehicleSpeed <= 0.1 || detectedVehicles[vehicleID].Kinematics.Is_stationary == true)
-                    vehicleSpeed = 0f;
-                float vehicleYawSpeed = (float)-detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Angular.Z * Mathf.Rad2Deg;
-                if (vehicleYawSpeed <= 1 || detectedVehicles[vehicleID].Kinematics.Is_stationary == true)
-                    vehicleYawSpeed = 0f;
+                double vehicleSpeed = detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Linear.X;
+                double vehicleYawSpeed = -detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Angular.Z * Mathf.Rad2Deg;
+                
+                if (detectedVehicles[vehicleID].Kinematics.Is_stationary == true)
+                    vehicleSpeed = 0d;
+                    vehicleYawSpeed = 0d;
+                    
                 if (!currentFrameVehicles.Contains(vehicleID))
                 {
                     Debug.Log("Despawn vehicle: " + vehicleID);
                     npcVehicleSpawner.Despawn(vehicle);
                     npcVehicles.Remove(vehicleID);
                     spawnedVehicles.Remove(vehicleID);
+                    detectedVehicles.Remove(vehicleID);
                     break;
                 }
-                yield return UpdatePosAndRot(vehicle, 0.1f, vehicleSpeed, vehicleYawSpeed);
+                Vector3 updatedPosition = new Vector3((float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.Y, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.X);
+                Quaternion updatedRotation = new Quaternion(0f, (float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.Z, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.W);
+                yield return UpdatePosAndRot(vehicle, /*0.1f,*/ (float)vehicleSpeed, (float)vehicleYawSpeed, updatedPosition, updatedRotation);
             }
         }
 
-        IEnumerator UpdatePosAndRot(NPCVehicle npcVehicle, float duration, float speed, float yawSpeed)
+        IEnumerator UpdatePosAndRot(NPCVehicle npcVehicle, /*float duration,*/ float speed, float yawSpeed, Vector3 position, Quaternion rotation)
         {
             var startTime = Time.fixedTime;
-            yield return new WaitForFixedUpdate();
+            //yield return new WaitForFixedUpdate();
             Vector3 currentPosition = npcVehicle.transform.position;
             Quaternion currentRotation = npcVehicle.transform.rotation;
-            while (Time.fixedTime - startTime < duration)
-            {
+            //while (Time.fixedTime - startTime < duration)
+            //{
                 var euler = currentRotation.eulerAngles;
-                currentRotation = Quaternion.Euler(euler.x, euler.y + yawSpeed * Time.fixedDeltaTime, euler.z);
-                currentPosition += currentRotation * Vector3.forward * speed * Time.fixedDeltaTime;
-                npcVehicle.SetRotation(currentRotation);
-                npcVehicle.SetPosition(currentPosition);
+                //currentRotation = Quaternion.Euler(euler.x, euler.y + yawSpeed * Time.fixedDeltaTime, euler.z);
+                //currentPosition += currentRotation * Vector3.forward * speed * Time.fixedDeltaTime;
+                if (yawSpeed > 10f){
+                    npcVehicle.SetTurnSignalState(NPCVehicle.TurnSignalState.RIGHT);
+                }
+                else if (yawSpeed < -10f){
+                    npcVehicle.SetTurnSignalState(NPCVehicle.TurnSignalState.LEFT);
+                }
+                else{
+                    npcVehicle.SetTurnSignalState(NPCVehicle.TurnSignalState.OFF);
+                }
+                npcVehicle.gameObject.transform.forward = rotation * Vector3.forward;
+                npcVehicle.SetRotation(rotation);
+                npcVehicle.SetPosition(position);
                 yield return new WaitForFixedUpdate();
-            }
+            //}
         }
 
         void OnDestroy(){
             SimulatorROS2Node.RemoveSubscription<autoware_auto_perception_msgs.msg.TrackedObjects>(trackedObjectsSubscriber);
+            npcVehicles.Clear();
+            detectedVehicles.Clear();
+            spawnedVehicles.Clear();
         }
     }
 }
