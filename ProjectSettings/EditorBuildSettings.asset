@@ -11,7 +11,10 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/AWSIM/Scenes/Samples/DetectionInputTest.unity
     guid: 159be6865d1d2fe3c8e78bd8b2ad2340
-  - enabled: 1
+  - enabled: 0
     path: Assets/AWSIM/Scenes/Samples/NPCVehicleSpawnerWithDetection.unity
     guid: 81bf6cc298ee6f21397aaa27ceacb127
+  - enabled: 1
+    path: Assets/AWSIM/Scenes/Samples/Amirkabir_DT_Scene.unity
+    guid: 29dfd39b6369582659fe58a0a00e37d1
   m_configObjects: {}

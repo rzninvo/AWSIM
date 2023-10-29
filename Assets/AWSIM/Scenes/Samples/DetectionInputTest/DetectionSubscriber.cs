@@ -26,6 +26,7 @@ namespace AWSIM.Tests
         [SerializeField] GameObject[] npcVehiclePrefabs;
         private NPCVehicleSpawner npcVehicleSpawner;
         private Dictionary<String, NPCVehicle> npcVehicles;
+        private Dictionary<String, GameObject> npcVehiclesModels;
 
         private Dictionary<String, autoware_auto_perception_msgs.msg.TrackedObject> detectedVehicles;
         private List<String> spawnedVehicles;
@@ -40,6 +41,7 @@ namespace AWSIM.Tests
         {
             var qos = qosSettings.GetQoSProfile();
             npcVehicles = new Dictionary<String, NPCVehicle>();
+            npcVehiclesModels = new Dictionary<String, GameObject>();
             detectedVehicles = new Dictionary<String, autoware_auto_perception_msgs.msg.TrackedObject>();
             spawnedVehicles = new List<String>();
             npcVehicleSpawner = new NPCVehicleSpawner(this.gameObject, npcVehiclePrefabs);
@@ -78,20 +80,24 @@ namespace AWSIM.Tests
 
         IEnumerator Routine(string vehicleID)
         {
-            Debug.Log("--- Start control NPCVehicle ---");
-            Debug.Log("Straight");
             Vector3 spawnPosition = new Vector3((float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.Y, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.X);
             Quaternion rotation = new Quaternion(0f, (float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.Z, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.W);
-            NPCVehicle vehicle = npcVehicleSpawner.Spawn(npcVehicleSpawner.GetRandomPrefab(), SpawnIdGenerator.Generate(), spawnPosition, rotation, spawnObject.transform);
+            GameObject randomPrefab;
+            if (!npcVehiclesModels.ContainsKey(vehicleID))
+            {        
+                randomPrefab = npcVehicleSpawner.GetRandomPrefab();
+                npcVehiclesModels.Add(vehicleID, randomPrefab);
+            }
+            else 
+            {
+                randomPrefab = npcVehiclesModels[vehicleID];
+            }
+            NPCVehicle vehicle = npcVehicleSpawner.Spawn(randomPrefab, SpawnIdGenerator.Generate(), spawnPosition, rotation, spawnObject.transform);
             npcVehicles.Add(vehicleID, vehicle);
             while (true)
             {
                 double vehicleSpeed = detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Linear.X;
                 double vehicleYawSpeed = -detectedVehicles[vehicleID].Kinematics.Twist_with_covariance.Twist.Angular.Z * Mathf.Rad2Deg;
-                
-                if (detectedVehicles[vehicleID].Kinematics.Is_stationary == true)
-                    vehicleSpeed = 0d;
-                    vehicleYawSpeed = 0d;
                     
                 if (!currentFrameVehicles.Contains(vehicleID))
                 {
@@ -102,8 +108,14 @@ namespace AWSIM.Tests
                     detectedVehicles.Remove(vehicleID);
                     break;
                 }
-                Vector3 updatedPosition = new Vector3((float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.Y, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.X);
-                Quaternion updatedRotation = new Quaternion(0f, (float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.Z, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.W);
+
+                Vector3 updatedPosition = vehicle.transform.position;
+                Quaternion updatedRotation = vehicle.transform.rotation;
+                if (vehicleSpeed >= 0)
+                {
+                    updatedPosition = new Vector3((float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.Y, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Position.X);
+                    updatedRotation = new Quaternion(0f, (float)-detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.Z, 0f, (float)detectedVehicles[vehicleID].Kinematics.Pose_with_covariance.Pose.Orientation.W);
+                }
                 yield return UpdatePosAndRot(vehicle, /*0.1f,*/ (float)vehicleSpeed, (float)vehicleYawSpeed, updatedPosition, updatedRotation);
             }
         }
@@ -117,8 +129,8 @@ namespace AWSIM.Tests
             //while (Time.fixedTime - startTime < duration)
             //{
                 var euler = currentRotation.eulerAngles;
-                //currentRotation = Quaternion.Euler(euler.x, euler.y + yawSpeed * Time.fixedDeltaTime, euler.z);
-                //currentPosition += currentRotation * Vector3.forward * speed * Time.fixedDeltaTime;
+                currentRotation = Quaternion.Euler(euler.x, euler.y + yawSpeed * Time.fixedDeltaTime, euler.z);
+                currentPosition += currentRotation * Vector3.forward * speed * Time.fixedDeltaTime;
                 if (yawSpeed > 10f){
                     npcVehicle.SetTurnSignalState(NPCVehicle.TurnSignalState.RIGHT);
                 }
@@ -128,9 +140,16 @@ namespace AWSIM.Tests
                 else{
                     npcVehicle.SetTurnSignalState(NPCVehicle.TurnSignalState.OFF);
                 }
-                npcVehicle.gameObject.transform.forward = rotation * Vector3.forward;
-                npcVehicle.SetRotation(rotation);
-                npcVehicle.SetPosition(position);
+                //npcVehicle.gameObject.transform.forward = rotation * Vector3.forward;
+                if (speed > 1f){
+                    npcVehicle.SetRotation(rotation);
+                    npcVehicle.SetPosition(position); 
+                }
+                else{
+                    npcVehicle.SetRotation(currentRotation);
+                    npcVehicle.SetPosition(currentPosition); 
+                }
+
                 yield return new WaitForFixedUpdate();
             //}
         }
